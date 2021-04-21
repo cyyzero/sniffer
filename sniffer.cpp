@@ -118,102 +118,14 @@ void Sniffer::work()
         struct pcap_pkthdr* pkt_header;
         const u_char * pkt_data;
         int ret = pcap_next_ex(device_, &pkt_header, &pkt_data);
-        if (ret != 1)
+        if (ret != 1 || pkt_header->caplen != pkt_header->len)
         {
             qDebug() << ret;
             qDebug() << pcap_geterr(device_);
             continue;
         }
         PacketParser parser(pkt_data, pkt_header->caplen);
-//        qDebug() << "packet len: " << pkt_header->caplen;
         const auto& result = parser.parse();
-//        qDebug() << "src:  " << result.ethernetHeader->getSrcMAC().c_str();
-//        qDebug() << "dest: " << result.ethernetHeader->getDestMAC().c_str();
-//        qDebug() << "type: " << result.ethernetHeader->getType().c_str();
-#define output(func) qDebug() << #func << "\t: " << hdr->func().c_str();
-//        if (result.isIPv4)
-//        {
-//            auto hdr = result.ipv4Header;
-
-//            output(getVersionStr);
-//            output(getHeaderLengthStr);
-//            output(getDSCPStr);
-//            output(getECNStr);
-//            output(getTotalLengthStr);
-//            output(getIdentificationStr);
-//            output(getFlagsStr);
-//            output(getOffsetStr);
-//            output(getTTLStr);
-//            output(getProtocol);
-//            output(getChecksumStr);
-//            output(getSourceIPStr);
-//            output(getDestinationIPStr);
-//            output(getOptions);
-//        }
-//        if (result.isICMP)
-//        {
-//            auto hdr = result.icmpHeader;
-//            output(getTypeStr);
-//            output(getCodeStr);
-//            output(getChecksum);
-//            output(getIdentifier)
-//            if (hdr->hasIdAndSeq())
-//            {
-//                output(getIdentifier);
-//                output(getSequenceNumber);
-//            }
-//            else
-//            {
-//                output(getRest);
-//            }
-//            int len = result.len_ - (result.currPtr_ - result.start_);
-//            qDebug() << "payload: " << "\t: " << result.icmpHeader->getPayload(len).c_str();
-//        }
-//        if (result->isTCP)
-//        {
-//            auto hdr = result->tcpHeader;
-//            output(getSourcePortStr);
-//            output(getDestPortStr);
-//            output(getSeqNumStr);
-//            output(getAckNumStr);
-//            output(getHeaderLengthStr);
-//            output(getFalgs);
-//            output(getWindowSizeStr);
-//            output(getChecksumStr);
-//            output(getUrgentPointerStr);
-//            output(getOptionsStr);
-//            qDebug() << "!!len: " << (result.len_ - (result.currPtr_ - result.start_))
-//                     << " " << result.ipv4Header->getTotalLength() - sizeof(IPv4Header) - result.tcpHeader->getHeaderLength();
-//        }
-//        if (result->isUDP)
-//        {
-//            auto hdr = result->udpHeader;
-//            output(getSourcePortStr);
-//            output(getDestPortStr);
-//            output(getLengthStr);
-//            output(getChecksumStr);
-//            qDebug() << "!!len" << (result->len_ - (result->currPtr_ - result->start_))
-//                     << hdr->getLength() - sizeof(UDPHeader);
-//        }
-//        if (result->isHTTP)
-//        {
-//            auto hdr = result->httpHeader;
-//            const auto& hs = hdr->getHeaderLines();
-//            const auto& b = hdr->getBody();
-//            for (const auto &h: hs)
-//            {
-//                qDebug() << h.c_str() ;
-//            }
-//            qDebug() << "---";
-//            qDebug() << b.c_str();
-//        }
-//        if (result->isTLS)
-//        {
-//            auto hdr = result->tlsHeader;
-//            output(getTypeStr);
-//            output(getVersionStr);
-//            output(getLengthStr);
-//        }
         if (callback_)
         {
             callback_(result );

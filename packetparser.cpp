@@ -19,7 +19,6 @@ const std::shared_ptr<PacketParseResult>& PacketParser::parse()
     payload_ = parseResult_->start_;
     auto ptr = payload_;
     parseResult_->ethernetHeader = (const EthernetHeader*)payload_;
-//    parseResult_.ethernetHeader->init();
     ptr += sizeof (EthernetHeader);
     switch (parseResult_->ethernetHeader->getType())
     {
@@ -27,12 +26,10 @@ const std::shared_ptr<PacketParseResult>& PacketParser::parse()
         parseResult_->isARP = true;
         parseResult_->arpHeader = (const ARPHeader*)ptr;
         parseResult_->currPtr_ = ptr + sizeof (ARPHeader);
-//        parseResult_.arpHeader->init();
         return parseResult_;
     case EthernetTypeIPv4:
         parseResult_->isIPv4 = true;
         parseResult_->ipv4Header = (const IPv4Header*)ptr;
-//        parseResult_.ipv4Header->init();
         ptr += parseResult_->ipv4Header->getHeaderLength();
         parseResult_->currPtr_ = ptr;
         break;
@@ -50,7 +47,6 @@ const std::shared_ptr<PacketParseResult>& PacketParser::parse()
     {
         parseResult_->isICMP = true;
         parseResult_->icmpHeader = (const ICMPHeader*)ptr;
-//        parseResult_.icmpHeader->init();
         parseResult_->currPtr_ = ptr + sizeof(ICMPHeader);
         return parseResult_;
     }
@@ -111,11 +107,6 @@ const std::shared_ptr<PacketParseResult>& PacketParser::parse()
     return parseResult_;
 }
 
-void EthernetHeader::init()
-{
-//    this->type = netToHost(this->type);
-}
-
 std::string EthernetHeader::getDestMAC() const
 {
     return MACToStr(dest);
@@ -154,14 +145,6 @@ std::string EthernetHeader::getTypeStr() const
 uint16_t EthernetHeader::getType() const
 {
     return netToHost(type);
-}
-
-void ARPHeader::init()
-{
-    //    memcpy(this, p, sizeof(ARPHeader));
-    //    hardwareType = netToHost(hardwareType);
-//    protocolType = netToHost(protocolType);
-//    opcode = netToHost(opcode);
 }
 
 std::string ARPHeader::getHardWareType() const
@@ -228,15 +211,6 @@ std::string ARPHeader::getTargetMAC() const
 std::string ARPHeader::getTargetIP() const
 {
     return IPToStr(targetIP);
-}
-
-void IPv4Header::init()
-{
-    //        exchangeHalfByte(versionAndHeaderLength);
-//    totalLength = netToHost(totalLength);
-//    identification = netToHost(identification);
-//    flagsAndOffset = netToHost(flagsAndOffset);
-//    headerChecksum = netToHost(headerChecksum);
 }
 
 int IPv4Header::getVersion() const
@@ -378,12 +352,6 @@ std::string IPv4Header::getOptions() const
 {
     int optionSize = getHeaderLength() - sizeof(IPv4Header);
     return to_hex_string(options, optionSize);
-}
-
-void ICMPHeader::init()
-{
-//    checksum  = netToHost(checksum);
-
 }
 
 std::string ICMPHeader::getTypeStr() const

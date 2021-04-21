@@ -469,7 +469,6 @@ void MainWindow::displayPacketLayers(const ResultPtr &p)
 
 void MainWindow::displayPacketBinary(const ResultPtr& p)
 {
-    qDebug() << "arp 2 : "<< p->start_ << " " << p->len_;
     auto list = ui_->listWidget;
     const char* start = (const char*)p->start_;
     size_t len = p->len_;
@@ -485,7 +484,6 @@ void MainWindow::displayPacketBinary(const ResultPtr& p)
         }
         char buf[8], ch;
         snprintf(buf, 8, "%02x ", (int)start[i] & 0xff);
-        qDebug() << i << " " << buf ;
         buf1.append(buf);
         ch = start[i];
         if (!isgraph(ch))
