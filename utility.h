@@ -24,6 +24,8 @@ std::string IPToStr(const uint8_t* addr);
 
 uint8_t exchangeHalfByte(uint8_t n);
 
+bool start_with(const char* s1, const char* s2);
+
 template<typename T>
 std::string to_hex_string(T n)
 {

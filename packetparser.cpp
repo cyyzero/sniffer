@@ -9,58 +9,105 @@ PacketParser::PacketParser(const uint8_t* payload, size_t length)
 {
 }
 
-const PacketParseResult& PacketParser::parse()
+const std::shared_ptr<PacketParseResult>& PacketParser::parse()
 {
-    parseResult_.start_ = payload_;
-    parseResult_.len_ = length_;
+//    qDebug() << "parse...";
+    if (parseResult_ && payload_ == parseResult_->start_)
+        return parseResult_;
+    parseResult_ = std::make_shared<PacketParseResult>(payload_, length_);
+//    qDebug() << (void*) payload_ << " " << (void*)parseResult_->start_;
+    payload_ = parseResult_->start_;
     auto ptr = payload_;
-    parseResult_.ethernetHeader = (const EthernetHeader*)payload_;
+    parseResult_->ethernetHeader = (const EthernetHeader*)payload_;
 //    parseResult_.ethernetHeader->init();
     ptr += sizeof (EthernetHeader);
-    switch (parseResult_.ethernetHeader->getType())
+    switch (parseResult_->ethernetHeader->getType())
     {
     case EthernetTypeARP:
-        parseResult_.isARP = true;
-        parseResult_.arpHeader = (const ARPHeader*)ptr;
+        parseResult_->isARP = true;
+        parseResult_->arpHeader = (const ARPHeader*)ptr;
+        parseResult_->currPtr_ = ptr + sizeof (ARPHeader);
 //        parseResult_.arpHeader->init();
         return parseResult_;
     case EthernetTypeIPv4:
-        parseResult_.isIPv4 = true;
-        parseResult_.ipv4Header = (const IPv4Header*)ptr;
+        parseResult_->isIPv4 = true;
+        parseResult_->ipv4Header = (const IPv4Header*)ptr;
 //        parseResult_.ipv4Header->init();
-        ptr += parseResult_.ipv4Header->getHeaderLength();
+        ptr += parseResult_->ipv4Header->getHeaderLength();
+        parseResult_->currPtr_ = ptr;
         break;
     case EthernetTypeIpv6:
+        parseResult_->isIPv6 = true;
+        parseResult_->currPtr_ = ptr;
+        return parseResult_;
+    default:
+        parseResult_->currPtr_ = ptr;
         return parseResult_;
     }
-    switch (parseResult_.ipv4Header->protocol)
+    switch (parseResult_->ipv4Header->protocol)
     {
     case 0x01: // ICMP
     {
-        parseResult_.isICMP = true;
-        parseResult_.icmpHeader = (const ICMPHeader*)ptr;
+        parseResult_->isICMP = true;
+        parseResult_->icmpHeader = (const ICMPHeader*)ptr;
 //        parseResult_.icmpHeader->init();
-        parseResult_.currPtr_ = ptr + sizeof(ICMPHeader);
+        parseResult_->currPtr_ = ptr + sizeof(ICMPHeader);
         return parseResult_;
     }
     case 0x06: // tcp
-        parseResult_.isTCP = true;
-        parseResult_.tcpHeader = (const TCPHeader*)ptr;
-        ptr += parseResult_.tcpHeader->getHeaderLength();
-        parseResult_.currPtr_ = ptr;
+        parseResult_->isTCP = true;
+        parseResult_->tcpHeader = (const TCPHeader*)ptr;
+        ptr += parseResult_->tcpHeader->getHeaderLength();
+        parseResult_->currPtr_ = ptr;
         break;
     case 0x11: // udp
-        parseResult_.isUDP = true;
-        parseResult_.udpHeader = (const UDPHeader*)ptr;
+        parseResult_->isUDP = true;
+        parseResult_->udpHeader = (const UDPHeader*)ptr;
         ptr += sizeof(UDPHeader);
-        parseResult_.currPtr_ = ptr;
+        parseResult_->currPtr_ = ptr;
         break;
     case 0x02: // igmp
 //        break;
     default:
-        parseResult_.currPtr_ = ptr;
+        parseResult_->currPtr_ = ptr;
         return parseResult_;
     }
+    size_t dataLen = parseResult_->getPayloadLength();
+    if (parseResult_->isTCP && dataLen > 10)
+    {
+        auto sourcePort = parseResult_->tcpHeader->getSourcePort();
+        auto destPort = parseResult_->tcpHeader->getDestPort();
+        if (sourcePort == 80 || destPort == 80)
+        {
+            const char*str = (const char*)ptr;
+            if (start_with(str, "HTTP/") ||
+                start_with(str, "GET") ||
+                start_with(str, "HEAD") ||
+                start_with(str, "POST") ||
+                start_with(str, "PUT") ||
+                start_with(str, "DELETE") ||
+                start_with(str, "CONNECT") ||
+                start_with(str, "OPTIONS") ||
+                start_with(str, "TRACE") ||
+                start_with(str, "PATCH"))
+            {
+                parseResult_->isHTTP = true;
+                parseResult_->httpHeader = new HTTPHeader(str, dataLen);
+            }
+        }
+        else if ((sourcePort == 443 || destPort == 443) &&
+                 dataLen > sizeof(TLSHeader)
+                 )
+        {
+            parseResult_->tlsHeader = (const TLSHeader*)ptr;
+            auto header = parseResult_->tlsHeader;
+            if (header->isKnownType() && header->isKnownVersion())
+            {
+                parseResult_->isTLS = true;
+            }
+        }
+    }
+
     return parseResult_;
 }
 
@@ -92,13 +139,13 @@ std::string EthernetHeader::getTypeStr() const
     switch (t)
     {
     case EthernetTypeIPv4:
-        return "IPv4";
+        return "IPv4 0x0800";
     case EthernetTypeIpv6:
-        return "IPv6";
+        return "IPv6 0x86dd";
     case EthernetTypeARP:
-        return "ARP";
+        return "ARP 0x0806";
     case EthernetTypeRARP:
-        return "RARP";
+        return "RARP 0x8035";
     default:
         return std::string("unknown ").append(to_hex_string(t));
     }
@@ -108,8 +155,6 @@ uint16_t EthernetHeader::getType() const
 {
     return netToHost(type);
 }
-
-
 
 void ARPHeader::init()
 {
@@ -534,7 +579,7 @@ std::string TCPHeader::getUrgentPointerStr() const
 
 bool TCPHeader::hasOptions() const
 {
-    return getHeaderLength() > sizeof(TCPHeader);
+    return getHeaderLength() > (int)sizeof(TCPHeader);
 }
 
 std::string TCPHeader::getOptionsStr() const
@@ -668,4 +713,149 @@ uint16_t UDPHeader::getChecksum() const
 std::string UDPHeader::getChecksumStr() const
 {
     return std::to_string(getChecksum());
+}
+
+HTTPHeader::HTTPHeader(const char *start, size_t len)
+    : start_(start),
+      len_(len)
+{
+    const char* left = start_, *right = start_ + 1;
+    while (right < len_ + start_)
+    {
+        if (*right == '\r')
+        {
+            if (right + 4 > len_ + start_)
+            {
+                data_ = start_ + len;
+                break;
+            }
+            if (start_with(right, "\r\n\r\n"))
+            {
+                headers_.emplace_back(left, right - left);
+                data_ = right + 4;
+                break;
+            }
+            else if (start_with(right, "\r\n"))
+            {
+                headers_.emplace_back(left, right - left);
+                left = right + 2;
+                right = left + 1;
+            }
+        }
+        ++right;
+    }
+
+    if (data_ >= len_ + start_)
+        return;
+    bool retHex = false;
+    auto dataLen = len_ - (data_ - start_);
+    size_t checkNum = dataLen < 4 ? dataLen : 4;
+    for (size_t i = 0; i < checkNum; ++i)
+    {
+        if (!isprint(data_[i]))
+        {
+            retHex = true;
+            break;
+        }
+    }
+    if (retHex)
+    {
+        std::string hexStr = to_hex_string((const uint8_t*)data_, dataLen);
+        if (dataLen >= 20)
+        {
+            hexStr = hexStr.substr(0, 20);
+        }
+        hexStr.append(("..."));
+        body_ = hexStr;
+    }
+    else
+        body_ = std::string(data_, dataLen);
+}
+
+std::vector<std::string> HTTPHeader::getHeaderLines() const
+{
+    return headers_;
+}
+
+std::string HTTPHeader::getBody() const
+{
+    return body_;
+}
+
+bool TLSHeader::isKnownType() const
+{
+    return type == 0x14 ||
+            type == 0x15 ||
+            type == 0x16 ||
+            type == 0x17 ||
+            type == 0x18;
+}
+
+bool TLSHeader::isKnownVersion() const
+{
+    return version[0] == 3 &&
+            (version[1] >= 0 && version[1] <= 4);
+}
+
+int TLSHeader::getType() const
+{
+    return type;
+}
+
+std::string TLSHeader::getTypeStr() const
+{
+    switch (type)
+    {
+    case 0x14: 	 // 20 	ChangeCipherSpec
+        return "ChangeCipherSpec";
+        break;
+    case 0x15: 	 // 21 	Alert
+        return "Alert";
+        break;
+    case 0x16: 	 // 22 	Handshake
+        return "Handshake";
+        break;
+    case 0x17: 	 // 23 	Application
+        return "ApplicationData";
+        break;
+    case 0x18: 	 // 24 	Heartbeat
+        return "Heartbeat";
+        break;
+    default:
+        return "Unknown";
+    }
+}
+
+std::string TLSHeader::getVersionStr() const
+{
+    if (version[0] != 3)
+        return std::string();
+    switch (version[1])
+    {
+    case 0:
+        return "SSL3.0";
+    case 1:
+        return "TLS1.0";
+    case 2:
+        return "TLS1.1";
+    case 3:
+        return "TLS1.2";
+    case 4:
+        return "TLS1.3";
+    default:
+        return "unknown";
+    }
+
+}
+
+uint16_t TLSHeader::getLength() const
+{
+    qDebug() << "length: 0x" << to_hex_string(length).c_str();
+    return length;
+}
+
+std::string TLSHeader::getLengthStr() const
+{
+//    qDebug() << netToHost(getLength());
+    return std::to_string(getLength());
 }

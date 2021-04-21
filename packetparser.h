@@ -1,8 +1,11 @@
 #ifndef PACKETPARSER_H
 #define PACKETPARSER_H
 
-#include <cstdint>
 #include <memory>
+#include <vector>
+#include <cstdint>
+#include <cstring>
+#include <QDebug>
 
 #define EthernetTypeIPv4 ((uint16_t)0x0800)
 #define EthernetTypeARP ((uint16_t)0x0806)
@@ -161,19 +164,81 @@ struct UDPHeader
     std::string getLengthStr() const;
     uint16_t getChecksum() const;
     std::string getChecksumStr() const;
+};
 
+struct HTTPHeader
+{
+    HTTPHeader(const char* start = nullptr, size_t len = 0);
+
+
+    std::vector<std::string> getHeaderLines() const;
+    std::string getBody() const;
+
+    std::vector<std::string> headers_;
+    std::string body_;
+    const char* start_;
+    size_t len_;
+    const char* data_;
+};
+
+struct TLSHeader
+{
+    uint8_t type;
+    uint8_t version[2];
+    uint16_t length;
+    uint8_t data[];
+
+    bool isKnownType() const;
+    bool isKnownVersion() const;
+    int getType() const;
+    std::string getTypeStr() const;
+    std::string getVersionStr() const;
+    uint16_t getLength() const;
+    std::string getLengthStr() const;
 };
 
 struct PacketParseResult
 {
-    PacketParseResult()
+    PacketParseResult(const uint8_t* p = nullptr, size_t len = 0)
       : isARP(false),
         isIPv4(false),
         isIPv6(false),
         isICMP(false),
         isTCP(false),
-        isUDP(false)
-    { }
+        isUDP(false),
+        isHTTP(false),
+        isTLS(false),
+        currPtr_(nullptr),
+        start_(nullptr),
+        len_(len)
+    {
+//        qDebug() << (void*)p << " " << len;
+        init(p, len);
+    }
+    PacketParseResult(const PacketParseResult&) = default;
+    ~PacketParseResult()
+    {
+//        qDebug() << (void*)start_ << " " << isHTTP;
+        if (start_)
+            delete[] start_;
+        if (isHTTP && httpHeader)
+            delete httpHeader;
+    }
+
+    void init(const uint8_t* p, size_t len)
+    {
+        if (!p || len == 0)
+            return;
+        len_ = len;
+        start_ = new uint8_t[len];
+        memcpy((void*)start_, (void*)p, len);
+    }
+
+    void releaseOwnership()
+    {
+        start_ = nullptr;
+    }
+
     const EthernetHeader* ethernetHeader;
     bool isARP;
     const ARPHeader* arpHeader;
@@ -186,21 +251,30 @@ struct PacketParseResult
     const TCPHeader* tcpHeader;
     bool isUDP;
     const UDPHeader* udpHeader;
+    bool isHTTP;
+    HTTPHeader *httpHeader;
+    bool isTLS;
+    const TLSHeader* tlsHeader;
 
     size_t getPayloadLength() const
     {
-        size_t len = 0;
+        size_t len = 999999;
         if (isTCP)
         {
             len = ipv4Header->getTotalLength() - sizeof(IPv4Header) - tcpHeader->getHeaderLength();
         }
         else if (isUDP)
         {
-            len = 0;
+            len = udpHeader->getLength() - sizeof(UDPHeader);
+        }
+        size_t len2 = len_ - (currPtr_ - start_);
+        if (len > len2)
+        {
+            len = len2;
         }
         return len;
-
     }
+
     const uint8_t* currPtr_;
     const uint8_t* start_;
     size_t len_;
@@ -211,11 +285,15 @@ class PacketParser
 {
 public:
     PacketParser(const uint8_t* payload = nullptr, size_t length = 0);
-    const PacketParseResult& parse();
+    const std::shared_ptr<PacketParseResult>& parse();
+    const PacketParseResult* getParseResult()
+    {
+        return parseResult_.get();
+    }
 private:
     const uint8_t *payload_;
     size_t length_;
-    PacketParseResult parseResult_;
+    std::shared_ptr<PacketParseResult> parseResult_;
 };
 
 #endif // PACKETPARSER_H

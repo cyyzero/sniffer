@@ -11,15 +11,12 @@ CONFIG += c++17
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
-    notifybox.cpp \
     packetparser.cpp \
     sniffer.cpp \
-    utility.cpp \
-    winpcap.cpp
+    utility.cpp
 
 HEADERS += \
     mainwindow.h \
-    notifybox.h \
     packetparser.h \
     sniffer.h \
     utility.h

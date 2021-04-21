@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <string>
 #include <thread>
+#include <chrono>
 
 namespace
 {
@@ -48,7 +49,7 @@ Sniffer::~Sniffer()
 
 void Sniffer::selectDevice(int index)
 {
-    assert(index >=0 && index < devices_.size());
+    assert(index >=0 && index < (int)devices_.size());
     start_ = false;
     char errbuf[PCAP_ERRBUF_SIZE];
     if (device_)
@@ -94,9 +95,17 @@ void Sniffer::start()
 
 void Sniffer::stop()
 {
+    using namespace std::chrono_literals;
+    std::unique_lock<std::mutex> lk(m_);
     if (start_)
         qDebug() << "stop device";
     start_ = false;
+    cv_.wait_for(lk, 1s);
+}
+
+void Sniffer::setParsedCallback(Sniffer::callback_t func)
+{
+    callback_ = std::move(func);
 }
 
 void Sniffer::work()
@@ -105,7 +114,7 @@ void Sniffer::work()
     while (true)
     {
         if (!start_)
-            return;
+            break;
         struct pcap_pkthdr* pkt_header;
         const u_char * pkt_data;
         int ret = pcap_next_ex(device_, &pkt_header, &pkt_data);
@@ -160,9 +169,9 @@ void Sniffer::work()
 //            int len = result.len_ - (result.currPtr_ - result.start_);
 //            qDebug() << "payload: " << "\t: " << result.icmpHeader->getPayload(len).c_str();
 //        }
-//        if (result.isTCP)
+//        if (result->isTCP)
 //        {
-//            auto hdr = result.tcpHeader;
+//            auto hdr = result->tcpHeader;
 //            output(getSourcePortStr);
 //            output(getDestPortStr);
 //            output(getSeqNumStr);
@@ -176,17 +185,41 @@ void Sniffer::work()
 //            qDebug() << "!!len: " << (result.len_ - (result.currPtr_ - result.start_))
 //                     << " " << result.ipv4Header->getTotalLength() - sizeof(IPv4Header) - result.tcpHeader->getHeaderLength();
 //        }
-        if (result.isUDP)
+//        if (result->isUDP)
+//        {
+//            auto hdr = result->udpHeader;
+//            output(getSourcePortStr);
+//            output(getDestPortStr);
+//            output(getLengthStr);
+//            output(getChecksumStr);
+//            qDebug() << "!!len" << (result->len_ - (result->currPtr_ - result->start_))
+//                     << hdr->getLength() - sizeof(UDPHeader);
+//        }
+//        if (result->isHTTP)
+//        {
+//            auto hdr = result->httpHeader;
+//            const auto& hs = hdr->getHeaderLines();
+//            const auto& b = hdr->getBody();
+//            for (const auto &h: hs)
+//            {
+//                qDebug() << h.c_str() ;
+//            }
+//            qDebug() << "---";
+//            qDebug() << b.c_str();
+//        }
+//        if (result->isTLS)
+//        {
+//            auto hdr = result->tlsHeader;
+//            output(getTypeStr);
+//            output(getVersionStr);
+//            output(getLengthStr);
+//        }
+        if (callback_)
         {
-            auto hdr = result.udpHeader;
-            output(getSourcePortStr);
-            output(getDestPortStr);
-            output(getLengthStr);
-            output(getChecksumStr);
-            qDebug() << "!!len" << (result.len_ - (result.currPtr_ - result.start_))
-                     << hdr->getLength() - sizeof(UDPHeader);
+            callback_(result );
         }
     }
+    cv_.notify_one();
 }
 
 

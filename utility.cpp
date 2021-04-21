@@ -108,3 +108,14 @@ uint8_t exchangeHalfByte(uint8_t n)
 {
     return ((n & 0xf) << 4) | ((n & 0xf0) >> 4);
 }
+
+bool start_with(const char *s1, const char *s2)
+{
+    for (; *s2; ++s1, ++s2)
+    {
+        if (*s1 != *s2)
+            return false;
+    }
+    return true;
+
+}

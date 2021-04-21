@@ -75,6 +75,12 @@
       <property name="layoutDirection">
        <enum>Qt::LeftToRight</enum>
       </property>
+      <property name="editTriggers">
+       <set>QAbstractItemView::NoEditTriggers</set>
+      </property>
+      <property name="selectionBehavior">
+       <enum>QAbstractItemView::SelectRows</enum>
+      </property>
       <column>
        <property name="text">
         <string>No.</string>
@@ -100,20 +106,27 @@
         <string>Length</string>
        </property>
       </column>
+     </widget>
+    </item>
+    <item>
+     <widget class="QTreeWidget" name="treeWidget">
+      <attribute name="headerVisible">
+       <bool>false</bool>
+      </attribute>
       <column>
        <property name="text">
-        <string>Info</string>
+        <string/>
        </property>
       </column>
      </widget>
     </item>
     <item>
-     <widget class="QTreeWidget" name="treeWidget">
-      <column>
-       <property name="text">
-        <string notr="true">1</string>
-       </property>
-      </column>
+     <widget class="QListWidget" name="listWidget">
+      <property name="font">
+       <font>
+        <family>Consolas</family>
+       </font>
+      </property>
      </widget>
     </item>
    </layout>
