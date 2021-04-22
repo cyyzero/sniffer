@@ -5,17 +5,6 @@
 #include <thread>
 #include <chrono>
 
-namespace
-{
-
-bool defaultFilter()
-{
-    return true;
-}
-
-
-} // namespace
-
 Sniffer::Sniffer()
   : device_(nullptr),
     start_(false)
@@ -125,7 +114,7 @@ void Sniffer::work()
             continue;
         }
         PacketParser parser(pkt_data, pkt_header->caplen);
-        const auto& result = parser.parse();
+        std::shared_ptr<PacketParseResult> result = parser.parse();
         if (callback_)
         {
             callback_(result );

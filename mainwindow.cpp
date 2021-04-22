@@ -54,19 +54,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui_->pushButton, &QPushButton::clicked, ui_->lineEdit, &QLineEdit::returnPressed);
     connect(ui_->lineEdit, &QLineEdit::returnPressed, this, &MainWindow::inputFinished);
     connect(ui_->tableWidget, &QTableWidget::cellClicked, this, &MainWindow::tableCellClicked);
-//    connect(ui_->)
-
-//    std::thread t([this] () {
-//        for (int i = 0; i < 100; ++i)
-//        {
-//            using namespace std::chrono_literals;
-//            auto idx = tableAddItem(QVector<QString>{QString::number(i), "1.1.1.1"});
-//            qDebug() << idx << " " << ui_->tableWidget->rowCount();
-//            std::this_thread::sleep_for(1000ms);
-//            hideTableRow(idx);
-//        }
-//    });
-//    t.detach();
 
     ui_->tableWidget->verticalHeader()->setVisible(false);
     fillInDevices();
@@ -539,6 +526,8 @@ void MainWindow::on_clearButton_clicked()
 {
     std::lock_guard<std::mutex> lk(m_);
     clearTable();
+    clearTreeWidget();
+    clearListWidget();
 }
 
 void MainWindow::fillInDevices()

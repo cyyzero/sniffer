@@ -11,11 +11,9 @@ PacketParser::PacketParser(const uint8_t* payload, size_t length)
 
 const std::shared_ptr<PacketParseResult>& PacketParser::parse()
 {
-//    qDebug() << "parse...";
     if (parseResult_ && payload_ == parseResult_->start_)
         return parseResult_;
     parseResult_ = std::make_shared<PacketParseResult>(payload_, length_);
-//    qDebug() << (void*) payload_ << " " << (void*)parseResult_->start_;
     payload_ = parseResult_->start_;
     auto ptr = payload_;
     parseResult_->ethernetHeader = (const EthernetHeader*)payload_;
