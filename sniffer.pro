@@ -24,12 +24,19 @@ HEADERS += \
 FORMS += \
     mainwindow.ui
 
-Npcap += $$PWD/npcap-sdk-1.07/
+win32{
 
-INCLUDEPATH += \
-    $${Npcap}/Include/
+    Npcap += $$PWD/npcap-sdk-1.07/
 
-LIBS += -L$${Npcap}/Lib/x64 -lwpcap -lPacket
+    INCLUDEPATH += \
+        $${Npcap}/Include/
+
+    LIBS += -L$${Npcap}/Lib/x64 -lwpcap -lPacket
+}
+
+unix{
+    LIBS += -lpcap
+}
 
 
 # Default rules for deployment.

@@ -19,7 +19,6 @@ struct EthernetHeader
     uint8_t src[6];
     uint16_t type;
 
-    void init();
     std::string getDestMAC() const;
     std::string getSrcMAC() const;
     std::string typeToHexStr() const;
@@ -39,7 +38,6 @@ struct ARPHeader
     uint8_t targetMAC[6];
     uint8_t targetIP[4];
 
-    void init();
     std::string getHardWareType() const;
     std::string getProtocolType() const;
     std::string getHardWareSize() const;
@@ -70,7 +68,6 @@ struct IPv4Header
     uint8_t destinationIP[4];
     uint8_t options[];
 
-    void init();
     int getVersion() const;
     std::string getVersionStr() const;
     int getHeaderLengthField() const;
@@ -101,8 +98,6 @@ struct ICMPHeader
     uint16_t checksum;
     uint8_t rest[4];
     uint8_t data[];
-
-    void init();
 
     std::string getTypeStr() const;
     std::string getCodeStr() const;

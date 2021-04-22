@@ -54,19 +54,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui_->pushButton, &QPushButton::clicked, ui_->lineEdit, &QLineEdit::returnPressed);
     connect(ui_->lineEdit, &QLineEdit::returnPressed, this, &MainWindow::inputFinished);
     connect(ui_->tableWidget, &QTableWidget::cellClicked, this, &MainWindow::tableCellClicked);
-//    connect(ui_->)
-
-//    std::thread t([this] () {
-//        for (int i = 0; i < 100; ++i)
-//        {
-//            using namespace std::chrono_literals;
-//            auto idx = tableAddItem(QVector<QString>{QString::number(i), "1.1.1.1"});
-//            qDebug() << idx << " " << ui_->tableWidget->rowCount();
-//            std::this_thread::sleep_for(1000ms);
-//            hideTableRow(idx);
-//        }
-//    });
-//    t.detach();
 
     ui_->tableWidget->verticalHeader()->setVisible(false);
     fillInDevices();
@@ -469,7 +456,6 @@ void MainWindow::displayPacketLayers(const ResultPtr &p)
 
 void MainWindow::displayPacketBinary(const ResultPtr& p)
 {
-    qDebug() << "arp 2 : "<< p->start_ << " " << p->len_;
     auto list = ui_->listWidget;
     const char* start = (const char*)p->start_;
     size_t len = p->len_;
@@ -485,7 +471,6 @@ void MainWindow::displayPacketBinary(const ResultPtr& p)
         }
         char buf[8], ch;
         snprintf(buf, 8, "%02x ", (int)start[i] & 0xff);
-        qDebug() << i << " " << buf ;
         buf1.append(buf);
         ch = start[i];
         if (!isgraph(ch))
@@ -541,6 +526,8 @@ void MainWindow::on_clearButton_clicked()
 {
     std::lock_guard<std::mutex> lk(m_);
     clearTable();
+    clearTreeWidget();
+    clearListWidget();
 }
 
 void MainWindow::fillInDevices()
