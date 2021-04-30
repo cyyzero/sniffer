@@ -6,7 +6,7 @@
 #include <chrono>
 
 Sniffer::Sniffer()
-  : device_(nullptr),
+  : deviceIndex_(-1),
     start_(false)
 {
     char errbuf[PCAP_ERRBUF_SIZE];
@@ -40,22 +40,7 @@ void Sniffer::selectDevice(int index)
 {
     assert(index >=0 && index < (int)devices_.size());
     start_ = false;
-    char errbuf[PCAP_ERRBUF_SIZE];
-    if (device_)
-    {
-        pcap_close(device_);
-    }
-    if ((device_ = pcap_open_live(
-         devices_[index]->name,	    // name of the device
-         65536,                     // portion of the packet to capture.
-                                    // 65536 grants that the whole packet will be captured on all the MACs.
-         1,                         // promiscuous mode (nonzero means promiscuous)
-         1000,                      // read timeout
-         errbuf                     // error buffer
-         )) == nullptr)
-    {
-        qFatal("Open device failed, device No. %d, device name: %s", index, devices_[index]->description);
-    }
+    deviceIndex_ = index;
 }
 
 int Sniffer::getDeviceNumber() const
@@ -100,17 +85,30 @@ void Sniffer::setParsedCallback(Sniffer::callback_t func)
 void Sniffer::work()
 {
     qDebug() << "start working...";
+    char errbuf[PCAP_ERRBUF_SIZE];
+    pcap_t *device;
+    if ((device = pcap_open_live(
+         devices_[deviceIndex_]->name,	    // name of the device
+         65536,                     // portion of the packet to capture.
+                                    // 65536 grants that the whole packet will be captured on all the MACs.
+         1,                         // promiscuous mode (nonzero means promiscuous)
+         1000,                      // read timeout
+         errbuf                     // error buffer
+         )) == nullptr)
+    {
+        qFatal("Open device failed, device No. %d, device name: %s", deviceIndex_, devices_[deviceIndex_]->description);
+    }
     while (true)
     {
         if (!start_)
             break;
         struct pcap_pkthdr* pkt_header;
         const u_char * pkt_data;
-        int ret = pcap_next_ex(device_, &pkt_header, &pkt_data);
+        int ret = pcap_next_ex(device, &pkt_header, &pkt_data);
         if (ret != 1 || pkt_header->caplen != pkt_header->len)
         {
             qDebug() << ret;
-            qDebug() << pcap_geterr(device_);
+            qDebug() << pcap_geterr(device);
             continue;
         }
         PacketParser parser(pkt_data, pkt_header->caplen);
@@ -120,6 +118,7 @@ void Sniffer::work()
             callback_(result );
         }
     }
+    pcap_close(device);
     cv_.notify_one();
 }
 

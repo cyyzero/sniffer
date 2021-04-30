@@ -29,7 +29,7 @@ public:
 private:
 
     void work();
-    pcap_t *device_;
+    int deviceIndex_;
     std::atomic_bool start_;
     std::vector<pcap_if_t *> devices_;
     callback_t callback_;
